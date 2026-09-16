@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balon Ketenangan – Pengawas Ujian</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f4ff 0%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(2deg); }
+        }
+        @keyframes popAnim {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.8; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        .balloon-float {
+            animation: float 4s ease-in-out infinite;
+        }
+        .balloon-pop {
+            animation: popAnim 0.3s forwards ease-out;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased flex flex-col min-h-screen">
+
+    <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-indigo-100 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="text-center sm:text-left">
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-indigo-900 flex items-center justify-center sm:justify-start gap-2">
+                    <span>🎈</span> Balon Ketenangan
+                </h1>
+                <p class="text-sm text-slate-500 font-medium">Teman Guru Menjaga Suasana Ujian • Biarkan aplikasi membantu mendeteksi suara yang terlalu ribut.</p>
+            </div>
+            <!-- Mode & Control Panel top -->
+            <div class="flex items-center gap-3 flex-wrap justify-center">
+                <div class="bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200 flex items-center gap-2">
+                    <span class="text-xs font-bold text-indigo-700 uppercase tracking-wider">Mode:</span>
+                    <label class="inline-flex items-center gap-1 text-sm font-semibold cursor-pointer">
+                        <input type="radio" name="appMode" value="simulation" class="text-indigo-600 focus:ring-indigo-500" checked> Simulasi
+                    </label>
+                    <label class="inline-flex items-center gap-1 text-sm font-semibold cursor-pointer ml-2">
+                        <input type="radio" name="appMode" value="exam" class="text-indigo-600 focus:ring-indigo-500"> Pengawasan Ujian
+                    </label>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left / Top Column: Status, Controls, and Audio Level -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- Status Card -->
+            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden">
+                <div id="statusBadge" class="px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm">
+                    <span id="statusIndicatorDot" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="statusText">KELAS TENANG</span>
+                </div>
+
+                <!-- Main Action Button -->
+                <button id="toggleMonitorBtn" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-lg shadow-lg hover:shadow-indigo-500/30 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-3">
+                    <span id="toggleMonitorIcon">▶️</span>
+                    <span id="toggleMonitorText">MULAI PENGAWASAN</span>
+                </button>
+
+                <!-- Mic Error / Info Message -->
+                <div id="micErrorMsg" class="hidden mt-3 p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200"></div>
+
+                <!-- Audio Meter & Visualizer -->
+                <div class="w-full mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
+                    <div class="flex justify-between items-center text-xs font-semibold text-slate-500">
+                        <span>TINGKAT SUARA</span>
+                        <span id="volumePercentText">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden p-0.5 border border-slate-200 shadow-inner">
+                        <div id="volumeProgressBar" class="bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 h-full rounded-full transition-all duration-100" style="width: 0%"></div>
+                    </div>
+                    <!-- Waveform Visualizer Simulation -->
+                    <div class="flex items-center justify-between bg-slate-900 text-emerald-400 font-mono text-xs p-3 rounded-xl tracking-widest overflow-hidden shadow-inner">
+                        <span class="text-slate-400">🔊</span>
+                        <div id="waveformText" class="truncate font-bold">▂▃▅▆████▆▅▃▂</div>
+                    </div>
+                </div>
+
+                <!-- Settings & Sliders -->
+                <div class="w-full mt-6 pt-6 border-t border-slate-100 flex flex-col gap-4 text-left">
+                    <div>
+                        <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                            <span>Ambang Kebisingan</span>
+                            <span id="thresholdValueText">45%</span>
+                        </div>
+                        <input type="range" id="thresholdSlider" min="10" max="90" value="45" class="w-full accent-indigo-600 cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                            <span>Tenang (10%)</span>
+                            <span>Ribut (90%)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                            <span>Volume Letusan (POP)</span>
+                            <span id="popVolumeText">70%</span>
+                        </div>
+                        <input type="range" id="popVolumeSlider" min="0" max="100" value="70" class="w-full accent-indigo-600 cursor-pointer">
+                    </div>
+
+                    <div class="flex gap-2 pt-2">
+                        <button id="testVoiceBtn" class="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 active:scale-98 rounded-xl font-semibold text-xs text-slate-700 transition flex items-center justify-center gap-1">
+                            🔊 TES SUARA
+                        </button>
+                        <button id="testBalloonBtn" class="flex-1 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 active:scale-98 rounded-xl font-semibold text-xs text-indigo-700 transition flex items-center justify-center gap-1 border border-indigo-200">
+                            💥 TES BALON
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-extrabold text-slate-800 text-sm uppercase tracking-wider">Statistik Pengawasan</h3>
+                    <button id="resetStatsBtn" class="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition flex items-center gap-1">
+                        🔄 RESET
+                    </button>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                        <span class="text-2xl block mb-1">💥</span>
+                        <div id="statPoppedCount" class="text-xl font-black text-slate-800">0</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-tight">Balon Meletus</div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                        <span class="text-2xl block mb-1">🔊</span>
+                        <div id="statWarningsCount" class="text-xl font-black text-slate-800">0</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-tight">Peringatan</div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                        <span class="text-2xl block mb-1">⏱️</span>
+                        <div id="statDurationText" class="text-sm font-black text-slate-800 mt-1">00:00:00</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-tight mt-1">Durasi</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right / Center Column: Balloon Stage & History -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            
+            <!-- Balloon Stage Card -->
+            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex flex-col flex-grow relative min-h-[420px]">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                    <div>
+                        <h2 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+                            <span>🎈</span> Area Balon Ketenangan
+                        </h2>
+                        <p class="text-xs text-slate-400">Balon akan meletus jika suara kelas melebihi ambang batas secara berkelanjutan.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="addBalloonBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1">
+                            🎈 Tambah Balon
+                        </button>
+                        <button id="resetBalloonsBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1">
+                            🧹 Reset Balon
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dynamic Warning Alert Banner Inside Balloon Area -->
+                <div id="alertBanner" class="hidden absolute top-20 left-1/2 transform -translate-x-1/2 z-30 bg-rose-600 text-white font-extrabold px-6 py-3 rounded-2xl shadow-2xl border-2 border-white animate-bounce flex items-center gap-3 text-lg">
+                    <span>🤫</span>
+                    <span id="alertBannerText">HUSSH... DIAM!</span>
+                </div>
+
+                <!-- Cooldown Banner -->
+                <div id="cooldownBanner" class="hidden absolute top-20 left-1/2 transform -translate-x-1/2 z-30 bg-amber-500 text-white font-bold px-5 py-2 rounded-xl shadow-lg text-sm flex items-center gap-2">
+                    <span>⏳</span>
+                    <span id="cooldownText">Menenangkan suasana...</span>
+                </div>
+
+                <!-- Balloon Container Grid -->
+                <div id="balloonContainer" class="flex-grow bg-gradient-to-b from-sky-50 to-indigo-50/50 rounded-2xl border border-slate-100 p-6 flex flex-wrap items-center justify-center gap-6 relative overflow-hidden min-h-[300px]">
+                    <!-- Balloons rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Warning History Card -->
+            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                        <span>📜</span> Riwayat Peringatan (Maks. 10)
+                    </h3>
+                    <button id="clearHistoryBtn" class="text-xs text-slate-400 hover:text-slate-600 font-semibold transition">Bersihkan</button>
+                </div>
+                <div id="historyListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <div class="text-xs text-slate-400 text-center py-4 italic bg-slate-50 rounded-xl border border-slate-100">
+                        Belum ada riwayat peringatan tersimpan.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-100 py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center space-y-2">
+            <p class="text-xs font-medium text-slate-600">
+                💡 "Gunakan aplikasi ini sebagai pengingat suasana kelas, bukan sebagai alat untuk menghukum murid."
+            </p>
+            <p class="text-[11px] text-slate-400">
+                🔒 Audio tidak direkam atau disimpan. Pengukuran suara dilakukan secara lokal di perangkat Anda menggunakan Web Audio API.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const toggleMonitorBtn = document.getElementById('toggleMonitorBtn');
+        const toggleMonitorIcon = document.getElementById('toggleMonitorIcon');
+        const toggleMonitorText = document.getElementById('toggleMonitorText');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusIndicatorDot = document.getElementById('statusIndicatorDot');
+        const statusText = document.getElementById('statusText');
+        const volumeProgressBar = document.getElementById('volumeProgressBar');
+        const volumePercentText = document.getElementById('volumePercentText');
+        const waveformText = document.getElementById('waveformText');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdValueText = document.getElementById('thresholdValueText');
+        const popVolumeSlider = document.getElementById('popVolumeSlider');
+        const popVolumeText = document.getElementById('popVolumeText');
+        const testVoiceBtn = document.getElementById('testVoiceBtn');
+        const testBalloonBtn = document.getElementById('testBalloonBtn');
+        const micErrorMsg = document.getElementById('micErrorMsg');
+        const resetStatsBtn = document.getElementById('resetStatsBtn');
+        const statPoppedCount = document.getElementById('statPoppedCount');
+        const statWarningsCount = document.getElementById('statWarningsCount');
+        const statDurationText = document.getElementById('statDurationText');
+        const balloonContainer = document.getElementById('balloonContainer');
+        const addBalloonBtn = document.getElementById('addBalloonBtn');
+        const resetBalloonsBtn = document.getElementById('resetBalloonsBtn');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const historyListContainer = document.getElementById('historyListContainer');
+        const alertBanner = document.getElementById('alertBanner');
+        const cooldownBanner = document.getElementById('cooldownBanner');
+        const cooldownText = document.getElementById('cooldownText');
+        const appModeRadios = document.querySelectorAll('input[name="appMode"]');
+
+        // State Variables
+        let isMonitoring = false;
+        let currentMode = 'simulation'; // 'simulation' or 'exam'
+        let audioContext = null;
+        let analyser = null;
+        let microphoneStream = null;
+        let dataArray = null;
+        let animationFrameId = null;
+
+        // Statistics & Counters
+        let poppedCount = 0;
+        let warningsCount = 0;
+        let durationSeconds = 0;
+        let timerInterval = null;
+        let warningHistory = [];
+
+        // Anti False Trigger & Cooldown State
+        let highVolumeStartTime = null;
+        const requiredHighDurationMs = 800; // 800ms continuous loudness before triggering
+        let isCooldownActive = false;
+        let cooldownTimerEnd = 0;
+
+        // Balloons State
+        let balloons = [];
+        const initialBalloonCount = 10;
+        const balloonColors = [
+            'bg-rose-400 text-rose-900 border-rose-500',
+            'bg-sky-400 text-sky-900 border-sky-500',
+            'bg-amber-400 text-amber-900 border-amber-500',
+            'bg-emerald-400 text-emerald-900 border-emerald-500',
+            'bg-purple-400 text-purple-900 border-purple-500',
+            'bg-pink-400 text-pink-900 border-pink-500',
+            'bg-indigo-400 text-indigo-900 border-indigo-500',
+            'bg-teal-400 text-teal-900 border-teal-500'
+        ];
+
+        // Initialize App
+        function initApp() {
+            renderBalloons(initialBalloonCount);
+            updateSlidersDisplay();
+            
+            // Event Listeners
+            toggleMonitorBtn.addEventListener('click', toggleMonitoring);
+            thresholdSlider.addEventListener('input', updateSlidersDisplay);
+            popVolumeSlider.addEventListener('input', updateSlidersDisplay);
+            testVoiceBtn.addEventListener('click', () => speakHussh('id-ID'));
+            testBalloonBtn.addEventListener('click', triggerBalloonBurst);
+            resetStatsBtn.addEventListener('click', resetStats);
+            addBalloonBtn.addEventListener('click', () => addBalloon());
+            resetBalloonsBtn.addEventListener('click', () => {
+                balloonContainer.innerHTML = '';
+                balloons = [];
+                renderBalloons(initialBalloonCount);
+            });
+            clearHistoryBtn.addEventListener('click', clearHistory);
+
+            appModeRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    currentMode = e.target.value;
+                    if (currentMode === 'simulation' && isMonitoring) {
+                        // Keep monitoring active or adjust if needed
+                    }
+                });
+            });
+        }
+
+        function updateSlidersDisplay() {
+            thresholdValueText.textContent = thresholdSlider.value + '%';
+            popVolumeText.textContent = popVolumeSlider.value + '%';
+        }
+
+        // Balloon Management
+        function renderBalloons(count) {
+            for (let i = 0; i < count; i++) {
+                createBalloonElement();
+            }
+        }
+
+        function createBalloonElement() {
+            const id = 'balloon-' + Math.random().toString(36.substring(2, 9));
+            const colorClass = balloonColors[Math.floor(Math.random() * balloonColors.length)];
+            
+            const balloon = document.createElement('div');
+            balloon.className = `relative flex flex-col items-center cursor-pointer transition-transform duration-300 balloon-float m-2`;
+            balloon.id = id;
+            
+            // Balloon body & string using SVG or styled divs
+            balloon.innerHTML = `
+                <div class="w-16 h-20 sm:w-20 sm:h-24 rounded-t-full rounded-b-[50%] shadow-lg ${colorClass} border-b-4 flex items-center justify-center relative hover:scale-105 transition">
+                    <span class="text-xl sm:text-2xl select-none">🎈</span>
+                    <!-- Shine highlight -->
+                    <div class="absolute top-2 left-3 w-3 h-5 bg-white/40 rounded-full rotate-[-25deg]"></div>
+                </div>
+                <div class="w-0.5 h-6 bg-slate-300"></div>
+            `;
+            
+            balloon.addEventListener('click', () => {
+                popSpecificBalloon(balloon);
+            });
+
+            balloonContainer.appendChild(balloon);
+            balloons.push({ id, element: balloon });
+        }
+
+        function addBalloon() {
+            createBalloonElement();
+        }
+
+        function popSpecificBalloon(balloonEl) {
+            if (!balloonEl || balloonEl.classList.contains('balloon-pop')) return;
+            
+            balloonEl.classList.remove('balloon-float');
+            balloonEl.classList.add('balloon-pop');
+
+            // Play Synth Pop Sound & Speech
+            playPopSound();
+            speakHussh();
+
+            // Increment stats
+            poppedCount++;
+            warningsCount++;
+            updateStatsDisplay();
+            addHistoryRecord("🔴 Suara terlalu tinggi (Manual/Trigger)");
+
+            // Show visual alert banner
+            showAlertBanner();
+
+            setTimeout(() => {
+                balloonEl.remove();
+                balloons = balloons.filter(b => b.element !== balloonEl);
+                // Automatically replenish balloon
+                createBalloonElement();
+            }, 300);
+        }
+
+        function triggerRandomBalloonBurst() {
+            if (balloons.length === 0) {
+                renderBalloons(5);
+            }
+            const randomBalloonObj = balloons[Math.floor(Math.random() * balloons.length)];
+            if (randomBalloonObj && randomBalloonObj.element) {
+                popSpecificBalloon(randomBalloonObj.element);
+            }
+        }
+
+        function triggerBalloonBurst() {
+            triggerRandomBalloonBurst();
+        }
+
+        // Web Audio API Synthesized Pop Sound
+        function playPopSound() {
+            try {
+                const volSetting = parseInt(popVolumeSlider.value) / 100;
+                if (volSetting <= 0) return;
+
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Noise buffer for the 'pop' burst
+                const bufferSize = audioCtx.sampleRate * 0.15;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(volSetting * 0.8, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                noise.start();
+            } catch (e) {
+                console.error("Audio synth error:", e);
+            }
+        }
+
+        // Web Speech API / SpeechSynthesisUtterance
+        function speakHussh() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop any pending speech
+                const utterance = new SpeechSynthesisUtterance("Hussh... diam!");
+                utterance.lang = "id-ID";
+                utterance.rate = 0.85;
+                utterance.pitch = 0.8;
+                utterance.volume = 1;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn("Speech Synthesis not supported by this browser.");
+            }
+        }
+
+        // Monitoring Control
+        async function toggleMonitoring() {
+            if (!isMonitoring) {
+                if (currentMode === 'exam') {
+                    try {
+                        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                            showMicError("Browser Anda tidak mendiskusikan atau mendukung akses mikrofon.");
+                            return;
+                        }
+
+                        microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                        setupAudioAnalyser(microphoneStream);
+                    } catch (err) {
+                        console.error("Mic permission error:", err);
+                        showMicError("Izin mikrofon ditolak atau tidak tersedia. Beralih ke Mode Simulasi.");
+                        return;
+                    }
+                } else {
+                    // Simulation mode analyser or random fluctuating values
+                    startSimulationAnalyser();
+                }
+
+                isMonitoring = true;
+                hideMicError();
+                updateMonitoringUI(true);
+                startTimer();
+                updateStatus('normal', 'KELAS TENANG');
+            } else {
+                stopMonitoring();
+            }
+        }
+
+        function stopMonitoring() {
+            isMonitoring = false;
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
+            stopTimer();
+            updateMonitoringUI(false);
+            updateStatus('stopped', 'PENGAWASAN DIHENTIKAN');
+            volumeProgressBar.style.width = '0%';
+            volumePercentText.textContent = '0%';
+        }
+
+        function setupAudioAnalyser(stream) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            analyser.fftSize = 256;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            analyzeAudioLoop();
+        }
+
+        function startSimulationAnalyser() {
+            // Simulated fluctuation for testing without mic or in simulation mode
+            function simulateLoop() {
+                if (!isMonitoring) return;
+                // Generate simulated noise level fluctuating between 15% and 65% (spiking occasionally)
+                let simulatedVol = Math.floor(Math.random() * 50) + 15;
+                if (Math.random() < 0.05) {
+                    simulatedVol = Math.floor(Math.random() * 40) + 55; // Spike past threshold
+                }
+                processVolumeLevel(simulatedVol);
+                animationFrameId = setTimeout(simulateLoop, 300);
+            }
+            simulateLoop();
+        }
+
+        function analyzeAudioLoop() {
+            if (!isMonitoring) return;
+
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            let average = sum / dataArray.length;
+            let volumePercent = Math.min(100, Math.floor((average / 128) * 100));
+
+            processVolumeLevel(volumePercent);
+            animationFrameId = requestAnimationFrame(analyzeAudioLoop);
+        }
+
+        function processVolumeLevel(volumePercent) {
+            volumeProgressBar.style.width = volumePercent + '%';
+            volumePercentText.textContent = volumePercent + '%';
+
+            const threshold = parseInt(thresholdSlider.value);
+
+            // Handle Cooldown check
+            if (isCooldownActive) {
+                const now = Date.now();
+                const remaining = Math.ceil((cooldownTimerEnd - now) / 1000);
+                if (remaining <= 0) {
+                    isCooldownActive = false;
+                    cooldownBanner.classList.add('hidden');
+                } else {
+                    cooldownText.textContent = `Menenangkan suasana... (${remaining}s)`;
+                    updateStatus('cooldown', '⏳ MENENANGKAN KELAS...');
+                    return;
+                }
+            }
+
+            if (volumePercent >= threshold) {
+                // Volume exceeds threshold
+                updateStatus('loud', '🔴 TERLALU RIBUT!');
+                
+                if (!highVolumeStartTime) {
+                    highVolumeStartTime = Date.now();
+                } else {
+                    const elapsedHigh = Date.now() - highVolumeStartTime;
+                    if (elapsedHigh >= requiredHighDurationMs) {
+                        // Anti false trigger passed! Trigger balloon pop
+                        highVolumeStartTime = null;
+                        triggerRandomBalloonBurst();
+                        startCooldown();
+                    }
+                }
+            } else if (volumePercent >= threshold * 0.75) {
+                // Approaching threshold
+                updateStatus('warning', '🟡 SUARA MENINGKAT');
+                highVolumeStartTime = null;
+            } else {
+                // Quiet
+                updateStatus('normal', '🟢 KELAS TENANG');
+                highVolumeStartTime = null;
+            }
+        }
+
+        function startCooldown() {
+            isCooldownActive = true;
+            cooldownTimerEnd = Date.now() + 4000; // 4 seconds cooldown
+            cooldownBanner.classList.remove('hidden');
+            addHistoryRecord("🔴 Suara terlalu tinggi melewati ambang batas");
+        }
+
+        function updateStatus(state, text) {
+            statusText.textContent = text;
+            statusIndicatorDot.className = "w-3 h-3 rounded-full animate-pulse";
+            
+            if (state === 'normal') {
+                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
+                statusIndicatorDot.classList.add('bg-emerald-500');
+            } else if (state === 'warning') {
+                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-2 shadow-sm";
+                statusIndicatorDot.classList.add('bg-amber-500');
+            } else if (state === 'loud') {
+                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-2 shadow-sm animate-pulse";
+                statusIndicatorDot.classList.add('bg-rose-600');
+            } else if (state === 'cooldown') {
+                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-2 shadow-sm";
+                statusIndicatorDot.classList.add('bg-amber-500');
+            } else {
+                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-slate-100 text-slate-600 border border-slate-300 flex items-center gap-2 shadow-sm";
+                statusIndicatorDot.classList.remove('animate-pulse');
+                statusIndicatorDot.classList.add('bg-slate-400');
+            }
+        }
+
+        function updateMonitoringUI(active) {
+            if (active) {
+                toggleMonitorBtn.className = "w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-lg shadow-lg hover:shadow-rose-500/30 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-3";
+                toggleMonitorIcon.textContent = "⏹️";
+                toggleMonitorText.textContent = "HENTIKAN PENGAWASAN";
+            } else {
+                toggleMonitorBtn.className = "w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-lg shadow-lg hover:shadow-indigo-500/30 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-3";
+                toggleMonitorIcon.textContent = "▶️";
+                toggleMonitorText.textContent = "MULAI PENGAWASAN";
+            }
+        }
+
+        function showMicError(msg) {
+            micErrorMsg.textContent = msg;
+            micErrorMsg.classList.remove('hidden');
+        }
+
+        function hideMicError() {
+            micErrorMsg.textContent = '';
+            micErrorMsg.classList.add('hidden');
+        }
+
+        // Timer Logic
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                durationSeconds++;
+                statDurationText.textContent = formatTime(durationSeconds);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function formatTime(totalSeconds) {
+            const hrs = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+            const mins = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+            const secs = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${hrs}:${mins}:${secs}`;
+        }
+
+        function resetStats() {
+            poppedCount = 0;
+            warningsCount = 0;
+            durationSeconds = 0;
+            updateStatsDisplay();
+            statDurationText.textContent = "00:00:00";
+        }
+
+        function updateStatsDisplay() {
+            statPoppedCount.textContent = poppedCount;
+            statWarningsCount.textContent = warningsCount;
+        }
+
+        // History Management
+        function addHistoryRecord(message) {
+            const now = new Date();
+            const timeString = now.toTimeString().split(' ')[0];
+            const recordText = `${timeString} — ${message}`;
+            
+            warningHistory.unshift(recordText);
+            if (warningHistory.length > 10) {
+                warningHistory.pop();
+            }
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            if (warningHistory.length === 0) {
+                historyListContainer.innerHTML = `
+                    <div class="text-xs text-slate-400 text-center py-4 italic bg-slate-50 rounded-xl border border-slate-100">
+                        Belum ada riwayat peringatan tersimpan.
+                    </div>
+                `;
+                return;
+            }
+
+            historyListContainer.innerHTML = '';
+            warningHistory.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "text-xs font-medium text-slate-700 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 flex items-center justify-between";
+                div.innerHTML = `<span>${item}</span><span class="text-rose-500 font-bold">⚠️</span>`;
+                historyListContainer.appendChild(div);
+            });
+        }
+
+        function clearHistory() {
+            warningHistory = [];
+            renderHistoryList();
+        }
+
+        // Alert Banner Display
+        function showAlertBanner() {
+            alertBanner.classList.remove('hidden');
+            setTimeout(() => {
+                alertBanner.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Run on load
+        window.onload = function() {
+            initApp();
+        };
+    </script>
+</body>
+</html>
