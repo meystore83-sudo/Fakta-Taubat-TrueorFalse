@@ -3,753 +3,587 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balon Ketenangan – Pengawas Ujian</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#4f46e5',
-                        secondary: '#3b82f6',
-                        accent: '#8b5cf6',
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>TAUBAT: True or False Challenge - Akidah Akhlak X MA</title>
+    <!-- Tailwind CSS untuk styling modern -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts: Poppins & Amiri -->
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <!-- MediaPipe Pose & Camera Utils -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <!-- Canvas Confetti untuk animasi kemenangan -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #f0f4ff 0%, #fef3c7 100%);
-            min-height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
         }
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-12px) rotate(2deg); }
+        .islamic-font {
+            font-family: 'Amiri', serif;
         }
-        @keyframes popAnim {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.4); opacity: 0.8; }
-            100% { transform: scale(0); opacity: 0; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .balloon-float {
-            animation: float 4s ease-in-out infinite;
-        }
-        .balloon-pop {
-            animation: popAnim 0.3s forwards ease-out;
+        /* Mirroring video kamera agar gerakan natural */
+        #webcam {
+            transform: scaleX(-1);
         }
     </style>
 </head>
-<body class="text-slate-800 antialiased flex flex-col min-h-screen">
+<body class="h-screen w-screen flex flex-col justify-between items-center p-4 relative">
 
-    <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-indigo-100 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="text-center sm:text-left">
-                <h1 class="text-2xl sm:text-3xl font-extrabold text-indigo-900 flex items-center justify-center sm:justify-start gap-2">
-                    <span>🎈</span> Balon Ketenangan
-                </h1>
-                <p class="text-sm text-slate-500 font-medium">Teman Guru Menjaga Suasana Ujian • Biarkan aplikasi membantu mendeteksi suara yang terlalu ribut.</p>
-            </div>
-            <!-- Mode & Control Panel top -->
-            <div class="flex items-center gap-3 flex-wrap justify-center">
-                <div class="bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200 flex items-center gap-2">
-                    <span class="text-xs font-bold text-indigo-700 uppercase tracking-wider">Mode:</span>
-                    <label class="inline-flex items-center gap-1 text-sm font-semibold cursor-pointer">
-                        <input type="radio" name="appMode" value="simulation" class="text-indigo-600 focus:ring-indigo-500" checked> Simulasi
-                    </label>
-                    <label class="inline-flex items-center gap-1 text-sm font-semibold cursor-pointer ml-2">
-                        <input type="radio" name="appMode" value="exam" class="text-indigo-600 focus:ring-indigo-500"> Pengawasan Ujian
-                    </label>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Left / Top Column: Status, Controls, and Audio Level -->
-        <div class="lg:col-span-1 flex flex-col gap-6">
-            
-            <!-- Status Card -->
-            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden">
-                <div id="statusBadge" class="px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm">
-                    <span id="statusIndicatorDot" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="statusText">KELAS TENANG</span>
-                </div>
-
-                <!-- Main Action Button -->
-                <button id="toggleMonitorBtn" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-lg shadow-lg hover:shadow-indigo-500/30 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-3">
-                    <span id="toggleMonitorIcon">▶️</span>
-                    <span id="toggleMonitorText">MULAI PENGAWASAN</span>
-                </button>
-
-                <!-- Mic Error / Info Message -->
-                <div id="micErrorMsg" class="hidden mt-3 p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200"></div>
-
-                <!-- Audio Meter & Visualizer -->
-                <div class="w-full mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
-                    <div class="flex justify-between items-center text-xs font-semibold text-slate-500">
-                        <span>TINGKAT SUARA</span>
-                        <span id="volumePercentText">0%</span>
-                    </div>
-                    <div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden p-0.5 border border-slate-200 shadow-inner">
-                        <div id="volumeProgressBar" class="bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 h-full rounded-full transition-all duration-100" style="width: 0%"></div>
-                    </div>
-                    <!-- Waveform Visualizer Simulation -->
-                    <div class="flex items-center justify-between bg-slate-900 text-emerald-400 font-mono text-xs p-3 rounded-xl tracking-widest overflow-hidden shadow-inner">
-                        <span class="text-slate-400">🔊</span>
-                        <div id="waveformText" class="truncate font-bold">▂▃▅▆████▆▅▃▂</div>
-                    </div>
-                </div>
-
-                <!-- Settings & Sliders -->
-                <div class="w-full mt-6 pt-6 border-t border-slate-100 flex flex-col gap-4 text-left">
-                    <div>
-                        <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
-                            <span>Ambang Kebisingan</span>
-                            <span id="thresholdValueText">45%</span>
-                        </div>
-                        <input type="range" id="thresholdSlider" min="10" max="90" value="45" class="w-full accent-indigo-600 cursor-pointer">
-                        <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
-                            <span>Tenang (10%)</span>
-                            <span>Ribut (90%)</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
-                            <span>Volume Letusan (POP)</span>
-                            <span id="popVolumeText">70%</span>
-                        </div>
-                        <input type="range" id="popVolumeSlider" min="0" max="100" value="70" class="w-full accent-indigo-600 cursor-pointer">
-                    </div>
-
-                    <div class="flex gap-2 pt-2">
-                        <button id="testVoiceBtn" class="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 active:scale-98 rounded-xl font-semibold text-xs text-slate-700 transition flex items-center justify-center gap-1">
-                            🔊 TES SUARA
-                        </button>
-                        <button id="testBalloonBtn" class="flex-1 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 active:scale-98 rounded-xl font-semibold text-xs text-indigo-700 transition flex items-center justify-center gap-1 border border-indigo-200">
-                            💥 TES BALON
-                        </button>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Statistics Card -->
-            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-extrabold text-slate-800 text-sm uppercase tracking-wider">Statistik Pengawasan</h3>
-                    <button id="resetStatsBtn" class="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition flex items-center gap-1">
-                        🔄 RESET
-                    </button>
-                </div>
-                <div class="grid grid-cols-3 gap-3 text-center">
-                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <span class="text-2xl block mb-1">💥</span>
-                        <div id="statPoppedCount" class="text-xl font-black text-slate-800">0</div>
-                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-tight">Balon Meletus</div>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <span class="text-2xl block mb-1">🔊</span>
-                        <div id="statWarningsCount" class="text-xl font-black text-slate-800">0</div>
-                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-tight">Peringatan</div>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <span class="text-2xl block mb-1">⏱️</span>
-                        <div id="statDurationText" class="text-sm font-black text-slate-800 mt-1">00:00:00</div>
-                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-tight mt-1">Durasi</div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Right / Center Column: Balloon Stage & History -->
-        <div class="lg:col-span-2 flex flex-col gap-6">
-            
-            <!-- Balloon Stage Card -->
-            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex flex-col flex-grow relative min-h-[420px]">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                    <div>
-                        <h2 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
-                            <span>🎈</span> Area Balon Ketenangan
-                        </h2>
-                        <p class="text-xs text-slate-400">Balon akan meletus jika suara kelas melebihi ambang batas secara berkelanjutan.</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button id="addBalloonBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1">
-                            🎈 Tambah Balon
-                        </button>
-                        <button id="resetBalloonsBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1">
-                            🧹 Reset Balon
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Dynamic Warning Alert Banner Inside Balloon Area -->
-                <div id="alertBanner" class="hidden absolute top-20 left-1/2 transform -translate-x-1/2 z-30 bg-rose-600 text-white font-extrabold px-6 py-3 rounded-2xl shadow-2xl border-2 border-white animate-bounce flex items-center gap-3 text-lg">
-                    <span>🤫</span>
-                    <span id="alertBannerText">HUSSH... DIAM!</span>
-                </div>
-
-                <!-- Cooldown Banner -->
-                <div id="cooldownBanner" class="hidden absolute top-20 left-1/2 transform -translate-x-1/2 z-30 bg-amber-500 text-white font-bold px-5 py-2 rounded-xl shadow-lg text-sm flex items-center gap-2">
-                    <span>⏳</span>
-                    <span id="cooldownText">Menenangkan suasana...</span>
-                </div>
-
-                <!-- Balloon Container Grid -->
-                <div id="balloonContainer" class="flex-grow bg-gradient-to-b from-sky-50 to-indigo-50/50 rounded-2xl border border-slate-100 p-6 flex flex-wrap items-center justify-center gap-6 relative overflow-hidden min-h-[300px]">
-                    <!-- Balloons rendered dynamically -->
-                </div>
-            </div>
-
-            <!-- Warning History Card -->
-            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-                        <span>📜</span> Riwayat Peringatan (Maks. 10)
-                    </h3>
-                    <button id="clearHistoryBtn" class="text-xs text-slate-400 hover:text-slate-600 font-semibold transition">Bersihkan</button>
-                </div>
-                <div id="historyListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    <div class="text-xs text-slate-400 text-center py-4 italic bg-slate-50 rounded-xl border border-slate-100">
-                        Belum ada riwayat peringatan tersimpan.
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-    </main>
-
-    <footer class="bg-white border-t border-slate-100 py-6 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 text-center space-y-2">
-            <p class="text-xs font-medium text-slate-600">
-                💡 "Gunakan aplikasi ini sebagai pengingat suasana kelas, bukan sebagai alat untuk menghukum murid."
-            </p>
-            <p class="text-[11px] text-slate-400">
-                🔒 Audio tidak direkam atau disimpan. Pengukuran suara dilakukan secara lokal di perangkat Anda menggunakan Web Audio API.
-            </p>
-        </div>
-    </footer>
-
+    <!-- AUDIO EFFECTS (Synthesizer Web Audio API built-in) -->
     <script>
-        // DOM Elements
-        const toggleMonitorBtn = document.getElementById('toggleMonitorBtn');
-        const toggleMonitorIcon = document.getElementById('toggleMonitorIcon');
-        const toggleMonitorText = document.getElementById('toggleMonitorText');
-        const statusBadge = document.getElementById('statusBadge');
-        const statusIndicatorDot = document.getElementById('statusIndicatorDot');
-        const statusText = document.getElementById('statusText');
-        const volumeProgressBar = document.getElementById('volumeProgressBar');
-        const volumePercentText = document.getElementById('volumePercentText');
-        const waveformText = document.getElementById('waveformText');
-        const thresholdSlider = document.getElementById('thresholdSlider');
-        const thresholdValueText = document.getElementById('thresholdValueText');
-        const popVolumeSlider = document.getElementById('popVolumeSlider');
-        const popVolumeText = document.getElementById('popVolumeText');
-        const testVoiceBtn = document.getElementById('testVoiceBtn');
-        const testBalloonBtn = document.getElementById('testBalloonBtn');
-        const micErrorMsg = document.getElementById('micErrorMsg');
-        const resetStatsBtn = document.getElementById('resetStatsBtn');
-        const statPoppedCount = document.getElementById('statPoppedCount');
-        const statWarningsCount = document.getElementById('statWarningsCount');
-        const statDurationText = document.getElementById('statDurationText');
-        const balloonContainer = document.getElementById('balloonContainer');
-        const addBalloonBtn = document.getElementById('addBalloonBtn');
-        const resetBalloonsBtn = document.getElementById('resetBalloonsBtn');
-        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-        const historyListContainer = document.getElementById('historyListContainer');
-        const alertBanner = document.getElementById('alertBanner');
-        const cooldownBanner = document.getElementById('cooldownBanner');
-        const cooldownText = document.getElementById('cooldownText');
-        const appModeRadios = document.querySelectorAll('input[name="appMode"]');
+        const soundEffect = {
+            playBeep(freq = 440, duration = 0.1) {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + duration);
+                } catch(e) {}
+            },
+            correct() {
+                this.playBeep(523.25, 0.15); // C5
+                setTimeout(() => this.playBeep(659.25, 0.2), 150); // E5
+                setTimeout(() => this.playBeep(783.99, 0.3), 300); // G5
+            },
+            wrong() {
+                this.playBeep(220, 0.25); // A3
+                setTimeout(() => this.playBeep(185, 0.3), 200); // F#3
+            },
+            tick() {
+                this.playBeep(800, 0.05);
+            },
+            warning() {
+                this.playBeep(400, 0.1);
+            }
+        };
+    </script>
 
-        // State Variables
-        let isMonitoring = false;
-        let currentMode = 'simulation'; // 'simulation' or 'exam'
-        let audioContext = null;
-        let analyser = null;
-        let microphoneStream = null;
-        let dataArray = null;
-        let animationFrameId = null;
+    <!-- UKURAN LAYAR UTAMA (LANDSCAPE 16:9 CONTAINER) -->
+    <div id="game-container" class="w-full max-w-[1280px] h-[720px] max-h-full glass-panel rounded-3xl shadow-2xl flex flex-col justify-between relative overflow-hidden p-6">
 
-        // Statistics & Counters
-        let poppedCount = 0;
-        let warningsCount = 0;
-        let durationSeconds = 0;
-        let timerInterval = null;
-        let warningHistory = [];
+        <!-- 1. HALAMAN AWAL (MENU) -->
+        <div id="screen-menu" class="absolute inset-0 z-50 bg-slate-950/95 flex flex-col items-center justify-center p-8 text-center">
+            <div class="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            <span class="text-emerald-400 font-semibold tracking-widest text-sm uppercase mb-2">Mata Pelajaran: Akidah Akhlak • Kelas X MA</span>
+            <h1 class="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 mb-4 islamic-font">
+                🌙 TAUBAT: TRUE OR FALSE CHALLENGE
+            </h1>
+            <p class="text-slate-300 text-lg max-w-2xl mb-8">
+                Uji pemahamanmu tentang fakta-fakta taubat dengan bergerak secara interaktif di depan kamera!
+            </p>
 
-        // Anti False Trigger & Cooldown State
-        let highVolumeStartTime = null;
-        const requiredHighDurationMs = 800; // 800ms continuous loudness before triggering
-        let isCooldownActive = false;
-        let cooldownTimerEnd = 0;
+            <div class="glass-panel px-6 py-4 rounded-2xl mb-8 flex gap-8 text-sm text-slate-300 border border-emerald-500/30">
+                <div class="flex items-center gap-2">
+                    <span class="w-4 h-4 rounded-full bg-red-500 inline-block"></span>
+                    <span>Gerak ke <b>KIRI</b> untuk <b>SALAH</b></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-4 h-4 rounded-full bg-emerald-500 inline-block"></span>
+                    <span>Gerak ke <b>KANAN</b> untuk <b>BENAR</b></span>
+                </div>
+                <div>⏱️ Waktu: <b>15 Detik / Soal</b></div>
+            </div>
 
-        // Balloons State
-        let balloons = [];
-        const initialBalloonCount = 10;
-        const balloonColors = [
-            'bg-rose-400 text-rose-900 border-rose-500',
-            'bg-sky-400 text-sky-900 border-sky-500',
-            'bg-amber-400 text-amber-900 border-amber-500',
-            'bg-emerald-400 text-emerald-900 border-emerald-500',
-            'bg-purple-400 text-purple-900 border-purple-500',
-            'bg-pink-400 text-pink-900 border-pink-500',
-            'bg-indigo-400 text-indigo-900 border-indigo-500',
-            'bg-teal-400 text-teal-900 border-teal-500'
+            <div id="high-score-display" class="text-amber-400 font-bold mb-6 text-lg">🏆 High Score: 0</div>
+
+            <button onclick="startGame()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xl px-10 py-4 rounded-2xl shadow-lg shadow-emerald-500/30 transform hover:scale-105 transition active:scale-95 cursor-pointer">
+                ▶ MULAI PERMAINAN
+            </button>
+        </div>
+
+        <!-- 2. PERINGATAN KAMERA BELUM AKTIF -->
+        <div id="screen-camera-warning" class="absolute inset-0 z-40 bg-slate-950/90 flex flex-col items-center justify-center p-8 text-center hidden">
+            <div class="text-6xl mb-4">📷</div>
+            <h2 class="text-2xl font-bold mb-2">Kamera Belum Aktif</h2>
+            <p class="text-slate-400 max-w-md mb-6">Izinkan akses kamera di browser kamu agar sistem dapat mendeteksi posisi tubuh murid secara real-time.</p>
+            <button onclick="initCamera()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-6 py-3 rounded-xl transition">
+                AKTIFKAN KAMERA
+            </button>
+        </div>
+
+        <!-- 3. HALAMAN PERMAINAN UTAMA -->
+        <!-- Hidden Video for MediaPipe Feed -->
+        <video id="webcam" class="hidden" autoplay playsinline></video>
+
+        <!-- Header Game -->
+        <div class="flex justify-between items-center z-10">
+            <div class="flex items-center gap-4">
+                <h2 class="text-lg font-bold tracking-wider text-emerald-400 islamic-font">🌙 TAUBAT CHALLENGE</h2>
+                <span id="question-counter" class="bg-slate-800/80 px-4 py-1.5 rounded-xl text-sm font-semibold border border-slate-700">SOAL 1/15</span>
+            </div>
+            
+            <!-- Indikator Kamera Real-time -->
+            <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-medium">
+                <span id="cam-status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                <span id="cam-status-text">CAMERA: LOADING...</span>
+            </div>
+
+            <div class="text-xl font-black bg-slate-800/80 px-6 py-1.5 rounded-xl border border-slate-700 text-amber-400">
+                SKOR: <span id="score-val">0</span>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-800/60 h-2.5 rounded-full overflow-hidden z-10 my-2">
+            <div id="progress-bar" class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full w-0 transition-all duration-300"></div>
+        </div>
+
+        <!-- Bagian Tengah: Pernyataan & Countdown -->
+        <div class="flex flex-col items-center justify-center text-center z-10 my-auto px-12">
+            <div id="countdown-display" class="text-5xl font-black text-cyan-400 mb-3 tracking-wider drop-shadow-[0_0_15px_rgba(34,211,238,0.4)]">15</div>
+            <div class="glass-panel p-8 rounded-3xl max-w-4xl w-full border border-slate-700/60 shadow-xl relative overflow-hidden">
+                <div id="statement-box" class="text-2xl md:text-3xl font-bold leading-relaxed text-slate-100">
+                    Memuat pernyataan...
+                </div>
+            </div>
+        </div>
+
+        <!-- Bagian Bawah: Zona Jawaban Kiri (SALAH) & Kanan (BENAR) -->
+        <div class="grid grid-cols-2 gap-6 z-10 h-36">
+            <!-- ZONA KIRI: SALAH -->
+            <div id="zone-left" class="glass-panel rounded-2xl flex flex-col items-center justify-center border-2 border-slate-700/80 transition-all duration-300 relative overflow-hidden">
+                <div class="text-3xl md:text-4xl font-black text-red-400 flex items-center gap-2">
+                    <span>❌</span> SALAH
+                </div>
+                <span class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">ZONA KIRI</span>
+                <div id="fill-left" class="absolute bottom-0 left-0 w-full bg-red-500/20 h-0 transition-all"></div>
+            </div>
+
+            <!-- ZONA KANAN: BENAR -->
+            <div id="zone-right" class="glass-panel rounded-2xl flex flex-col items-center justify-center border-2 border-slate-700/80 transition-all duration-300 relative overflow-hidden">
+                <div class="text-3xl md:text-4xl font-black text-emerald-400 flex items-center gap-2">
+                    <span>✅</span> BENAR
+                </div>
+                <span class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">ZONA KANAN</span>
+                <div id="fill-right" class="absolute bottom-0 left-0 w-full bg-emerald-500/20 h-0 transition-all"></div>
+            </div>
+        </div>
+
+        <!-- 4. MODAL FEEDBACK JAWABAN -->
+        <div id="feedback-modal" class="absolute inset-0 z-30 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center hidden">
+            <div id="feedback-icon" class="text-7xl mb-2">🎉</div>
+            <h2 id="feedback-title" class="text-4xl font-black mb-3 text-emerald-400">BENAR!</h2>
+            <div id="feedback-correct-answer" class="text-lg font-semibold text-slate-300 mb-2"></div>
+            <p id="feedback-explanation" class="text-slate-300 text-base max-w-2xl bg-slate-900/90 p-4 rounded-2xl border border-slate-800"></p>
+        </div>
+
+        <!-- 5. HALAMAN HASIL AKHIR -->
+        <div id="screen-result" class="absolute inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-8 text-center hidden">
+            <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-4">
+                🎉 PERMAINAN SELESAI!
+            </h2>
+            <div id="result-category" class="text-2xl font-bold text-amber-400 mb-6 bg-amber-400/10 px-6 py-2 rounded-2xl border border-amber-400/30">
+                🏆 AHLI TAUBAT
+            </div>
+
+            <div class="glass-panel grid grid-cols-2 md:grid-cols-4 gap-6 p-6 rounded-3xl max-w-3xl w-full mb-8 border border-slate-800">
+                <div>
+                    <div class="text-slate-400 text-sm">Skor Akhir</div>
+                    <div id="res-score" class="text-3xl font-black text-emerald-400">0</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-sm">Jawaban Benar</div>
+                    <div id="res-correct" class="text-3xl font-black text-cyan-400">0/15</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-sm">Jawaban Salah</div>
+                    <div id="res-wrong" class="text-3xl font-black text-red-400">0/15</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-sm">Akurasi</div>
+                    <div id="res-accuracy" class="text-3xl font-black text-amber-400">0%</div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="startGame()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-8 py-3 rounded-2xl transition cursor-pointer">
+                    🔄 MAIN LAGI
+                </button>
+                <button onclick="goToMenu()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-8 py-3 rounded-2xl transition border border-slate-700 cursor-pointer">
+                    🏠 KEMBALI KE MENU
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LOGIKA GAME & MEDIA PIPE POSE -->
+    <script>
+        // BANK SOAL LENGKAP (30 SOAL)
+        const masterBankSoal = [
+            { id: 1, text: "Taubat secara bahasa berarti kembali dari dosa menuju ketaatan kepada Allah.", answer: true, explanation: "Taubat bermakna kembali, yaitu kembali dari perbuatan dosa menuju ketaatan kepada Allah." },
+            { id: 2, text: "Taubat cukup dilakukan dengan mengucapkan 'Astaghfirullah' tanpa perlu meninggalkan dosa.", answer: false, explanation: "Taubat tidak hanya dengan ucapan, tetapi harus disertai penyesalan dan usaha meninggalkan dosa." },
+            { id: 3, text: "Setiap manusia membutuhkan taubat karena manusia tidak luput dari kesalahan.", answer: true, explanation: "Manusia dapat melakukan kesalahan sehingga perlu selalu memperbaiki diri dan kembali kepada Allah." },
+            { id: 4, text: "Orang yang pernah melakukan dosa besar tidak memiliki kesempatan untuk bertaubat.", answer: false, explanation: "Selama seseorang masih hidup dan memenuhi syarat taubat, ia tetap memiliki kesempatan untuk bertaubat kepada Allah." },
+            { id: 5, text: "Menyesali perbuatan dosa merupakan bagian penting dari taubat.", answer: true, explanation: "Penyesalan atas dosa merupakan salah satu unsur penting dalam taubat." },
+            { id: 6, text: "Salah satu bentuk taubat adalah bertekad kuat untuk tidak mengulangi dosa.", answer: true, explanation: "Taubat yang sungguh-sungguh disertai tekad untuk tidak kembali melakukan dosa." },
+            { id: 7, text: "Seseorang boleh menunda taubat sampai usia tua karena masih memiliki banyak waktu.", answer: false, explanation: "Taubat sebaiknya dilakukan segera dan tidak ditunda karena manusia tidak mengetahui kapan ajal datang." },
+            { id: 8, text: "Taubat hanya berkaitan dengan hubungan manusia kepada Allah dan tidak berkaitan dengan sesama manusia.", answer: false, explanation: "Jika kesalahan berkaitan dengan hak manusia, maka hak tersebut juga harus diperbaiki." },
+            { id: 9, text: "Jika dosa berkaitan dengan hak orang lain, hak tersebut perlu diperbaiki atau dikembalikan.", answer: true, explanation: "Kesalahan yang berkaitan dengan hak orang lain perlu diselesaikan dengan mengembalikan hak, meminta maaf, atau memperbaiki kerugian sesuai keadaan." },
+            { id: 10, text: "Orang yang bertaubat harus berusaha meninggalkan perbuatan dosa.", answer: true, explanation: "Taubat harus diwujudkan dalam usaha nyata untuk meninggalkan perbuatan dosa." },
+            { id: 11, text: "Seseorang yang telah bertaubat tidak mungkin melakukan kesalahan lagi.", answer: false, explanation: "Manusia tetap dapat melakukan kesalahan. Jika kembali terjatuh dalam dosa, ia harus kembali bertaubat." },
+            { id: 12, text: "Jika seseorang kembali melakukan dosa setelah bertaubat, ia tidak perlu bertaubat lagi.", answer: false, explanation: "Jika kembali melakukan dosa, seseorang tetap harus bertaubat dan memperbaiki dirinya." },
+            { id: 13, text: "Taubat dapat menjadi jalan bagi seseorang untuk memperbaiki dirinya.", answer: true, explanation: "Taubat mendorong seseorang meninggalkan keburukan dan menjadi pribadi yang lebih baik." },
+            { id: 14, text: "Taubat hanya diperlukan bagi orang yang melakukan dosa besar.", answer: false, explanation: "Setiap manusia membutuhkan taubat karena manusia tidak luput dari kesalahan." },
+            { id: 15, text: "Berbohong, ghibah, dan menyakiti orang lain merupakan perbuatan yang perlu ditinggalkan dan ditaubati.", answer: true, explanation: "Perbuatan tersebut merupakan akhlak tercela yang harus ditinggalkan dan diperbaiki." },
+            { id: 16, text: "Taubat yang benar hanya dilakukan melalui ucapan, tanpa perubahan perilaku.", answer: false, explanation: "Taubat harus diwujudkan melalui perubahan sikap dan perilaku." },
+            { id: 17, text: "Salah satu wujud nyata taubat adalah meninggalkan larangan Allah dan melakukan amal saleh.", answer: true, explanation: "Taubat seharusnya mendorong seseorang meninggalkan kemaksiatan dan memperbanyak kebaikan." },
+            { id: 18, text: "Taubat berarti seseorang mengakui kesalahannya dan berusaha kembali kepada Allah.", answer: true, explanation: "Taubat merupakan bentuk kesadaran, penyesalan, dan usaha kembali kepada jalan yang diridai Allah." },
+            { id: 19, text: "Orang yang merasa bersalah tetapi tetap sengaja mempertahankan dosanya sudah dianggap sempurna taubatnya.", answer: false, explanation: "Taubat membutuhkan kesungguhan untuk meninggalkan dosa dan memperbaiki diri." },
+            { id: 20, text: "Istighfar dapat menjadi salah satu bentuk awal seseorang dalam bertaubat.", answer: true, explanation: "Istighfar merupakan permohonan ampun kepada Allah dan dapat menjadi bagian dari proses taubat." },
+            { id: 21, text: "Taubat membuat seseorang tidak perlu lagi berusaha melakukan amal saleh.", answer: false, explanation: "Taubat seharusnya mendorong seseorang untuk meningkatkan amal saleh." },
+            { id: 22, text: "Menyadari kesalahan dapat menjadi langkah awal untuk melakukan taubat.", answer: true, explanation: "Kesadaran terhadap kesalahan dapat mendorong seseorang untuk menyesal dan memperbaiki diri." },
+            { id: 23, text: "Taubat hanya dilakukan ketika seseorang sedang mendapatkan musibah.", answer: false, explanation: "Taubat dapat dan seharusnya dilakukan kapan saja ketika seseorang menyadari kesalahannya." },
+            { id: 24, text: "Taubat mengajarkan manusia untuk tidak berputus asa dari rahmat Allah.", answer: true, explanation: "Seorang Muslim tidak boleh berputus asa dari rahmat Allah dan harus selalu memiliki harapan untuk memperbaiki diri." },
+            { id: 25, text: "Meminta maaf kepada orang lain dapat menjadi bagian dari memperbaiki kesalahan kepada sesama.", answer: true, explanation: "Jika kesalahan berkaitan dengan orang lain, meminta maaf dan memperbaiki kesalahan merupakan bagian penting dari tanggung jawab." },
+            { id: 26, text: "Seseorang yang sudah meminta ampun kepada Allah boleh tetap melakukan dosa yang sama dengan sengaja.", answer: false, explanation: "Taubat harus disertai kesungguhan untuk meninggalkan dosa." },
+            { id: 27, text: "Taubat dapat menjadi bukti bahwa seseorang mau bertanggung jawab atas kesalahannya.", answer: true, explanation: "Taubat menunjukkan kesadaran, penyesalan, dan kemauan untuk memperbaiki kesalahan." },
+            { id: 28, text: "Semakin banyak dosa seseorang, semakin tidak mungkin Allah menerima taubatnya.", answer: false, explanation: "Jangan berputus asa dari rahmat Allah. Seseorang harus segera bertaubat dengan sungguh-sungguh." },
+            { id: 29, text: "Taubat seharusnya mendorong seseorang untuk menjadi pribadi yang lebih baik.", answer: true, explanation: "Salah satu tujuan taubat adalah memperbaiki diri dan meningkatkan ketaatan kepada Allah." },
+            { id: 30, text: "Taubat bukan hanya meninggalkan dosa, tetapi juga kembali kepada Allah dan berusaha hidup dalam ketaatan.", answer: true, explanation: "Taubat mencakup meninggalkan dosa, menyesalinya, dan berusaha kembali hidup dalam ketaatan kepada Allah." }
         ];
 
-        // Initialize App
-        function initApp() {
-            renderBalloons(initialBalloonCount);
-            updateSlidersDisplay();
-            
-            // Event Listeners
-            toggleMonitorBtn.addEventListener('click', toggleMonitoring);
-            thresholdSlider.addEventListener('input', updateSlidersDisplay);
-            popVolumeSlider.addEventListener('input', updateSlidersDisplay);
-            testVoiceBtn.addEventListener('click', () => speakHussh('id-ID'));
-            testBalloonBtn.addEventListener('click', triggerBalloonBurst);
-            resetStatsBtn.addEventListener('click', resetStats);
-            addBalloonBtn.addEventListener('click', () => addBalloon());
-            resetBalloonsBtn.addEventListener('click', () => {
-                balloonContainer.innerHTML = '';
-                balloons = [];
-                renderBalloons(initialBalloonCount);
-            });
-            clearHistoryBtn.addEventListener('click', clearHistory);
+        // State Game
+        let activeQuestions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let timeLeft = 15;
+        let timerInterval = null;
+        let isAnsweringLocked = false;
+        let highcore = localStorage.getItem('taubat_highscore') || 0;
+        
+        // Tracking Timer Zona (0.7 detik di zona untuk kunci jawaban)
+        let currentZone = 'center'; // 'left', 'right', 'center'
+        let zoneTimer = 0;
+        const requiredZoneTime = 700; // milidetik
+        let lastTimestamp = Date.now();
 
-            appModeRadios.forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    currentMode = e.target.value;
-                    if (currentMode === 'simulation' && isMonitoring) {
-                        // Keep monitoring active or adjust if needed
-                    }
-                });
-            });
-        }
+        document.getElementById('high-score-display').innerText = `🏆 High Score: ${highcore}`;
 
-        function updateSlidersDisplay() {
-            thresholdValueText.textContent = thresholdSlider.value + '%';
-            popVolumeText.textContent = popVolumeSlider.value + '%';
-        }
-
-        // Balloon Management
-        function renderBalloons(count) {
-            for (let i = 0; i < count; i++) {
-                createBalloonElement();
-            }
-        }
-
-        function createBalloonElement() {
-            const id = 'balloon-' + Math.random().toString(36.substring(2, 9));
-            const colorClass = balloonColors[Math.floor(Math.random() * balloonColors.length)];
-            
-            const balloon = document.createElement('div');
-            balloon.className = `relative flex flex-col items-center cursor-pointer transition-transform duration-300 balloon-float m-2`;
-            balloon.id = id;
-            
-            // Balloon body & string using SVG or styled divs
-            balloon.innerHTML = `
-                <div class="w-16 h-20 sm:w-20 sm:h-24 rounded-t-full rounded-b-[50%] shadow-lg ${colorClass} border-b-4 flex items-center justify-center relative hover:scale-105 transition">
-                    <span class="text-xl sm:text-2xl select-none">🎈</span>
-                    <!-- Shine highlight -->
-                    <div class="absolute top-2 left-3 w-3 h-5 bg-white/40 rounded-full rotate-[-25deg]"></div>
-                </div>
-                <div class="w-0.5 h-6 bg-slate-300"></div>
-            `;
-            
-            balloon.addEventListener('click', () => {
-                popSpecificBalloon(balloon);
-            });
-
-            balloonContainer.appendChild(balloon);
-            balloons.push({ id, element: balloon });
-        }
-
-        function addBalloon() {
-            createBalloonElement();
-        }
-
-        function popSpecificBalloon(balloonEl) {
-            if (!balloonEl || balloonEl.classList.contains('balloon-pop')) return;
-            
-            balloonEl.classList.remove('balloon-float');
-            balloonEl.classList.add('balloon-pop');
-
-            // Play Synth Pop Sound & Speech
-            playPopSound();
-            speakHussh();
-
-            // Increment stats
-            poppedCount++;
-            warningsCount++;
-            updateStatsDisplay();
-            addHistoryRecord("🔴 Suara terlalu tinggi (Manual/Trigger)");
-
-            // Show visual alert banner
-            showAlertBanner();
-
-            setTimeout(() => {
-                balloonEl.remove();
-                balloons = balloons.filter(b => b.element !== balloonEl);
-                // Automatically replenish balloon
-                createBalloonElement();
-            }, 300);
-        }
-
-        function triggerRandomBalloonBurst() {
-            if (balloons.length === 0) {
-                renderBalloons(5);
-            }
-            const randomBalloonObj = balloons[Math.floor(Math.random() * balloons.length)];
-            if (randomBalloonObj && randomBalloonObj.element) {
-                popSpecificBalloon(randomBalloonObj.element);
-            }
-        }
-
-        function triggerBalloonBurst() {
-            triggerRandomBalloonBurst();
-        }
-
-        // Web Audio API Synthesized Pop Sound
-        function playPopSound() {
-            try {
-                const volSetting = parseInt(popVolumeSlider.value) / 100;
-                if (volSetting <= 0) return;
-
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // Noise buffer for the 'pop' burst
-                const bufferSize = audioCtx.sampleRate * 0.15;
-                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
-                }
-
-                const noise = audioCtx.createBufferSource();
-                noise.buffer = buffer;
-
-                const filter = audioCtx.createBiquadFilter();
-                filter.type = 'bandpass';
-                filter.frequency.value = 800;
-
-                const gainNode = audioCtx.createGain();
-                gainNode.gain.setValueAtTime(volSetting * 0.8, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-
-                noise.connect(filter);
-                filter.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                noise.start();
-            } catch (e) {
-                console.error("Audio synth error:", e);
-            }
-        }
-
-        // Web Speech API / SpeechSynthesisUtterance
-        function speakHussh() {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Stop any pending speech
-                const utterance = new SpeechSynthesisUtterance("Hussh... diam!");
-                utterance.lang = "id-ID";
-                utterance.rate = 0.85;
-                utterance.pitch = 0.8;
-                utterance.volume = 1;
-                window.speechSynthesis.speak(utterance);
-            } else {
-                console.warn("Speech Synthesis not supported by this browser.");
-            }
-        }
-
-        // Monitoring Control
-        async function toggleMonitoring() {
-            if (!isMonitoring) {
-                if (currentMode === 'exam') {
-                    try {
-                        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                            showMicError("Browser Anda tidak mendiskusikan atau mendukung akses mikrofon.");
-                            return;
-                        }
-
-                        microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                        setupAudioAnalyser(microphoneStream);
-                    } catch (err) {
-                        console.error("Mic permission error:", err);
-                        showMicError("Izin mikrofon ditolak atau tidak tersedia. Beralih ke Mode Simulasi.");
-                        return;
-                    }
-                } else {
-                    // Simulation mode analyser or random fluctuating values
-                    startSimulationAnalyser();
-                }
-
-                isMonitoring = true;
-                hideMicError();
-                updateMonitoringUI(true);
-                startTimer();
-                updateStatus('normal', 'KELAS TENANG');
-            } else {
-                stopMonitoring();
-            }
-        }
-
-        function stopMonitoring() {
-            isMonitoring = false;
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => track.stop());
-                microphoneStream = null;
-            }
-            if (audioContext && audioContext.state !== 'closed') {
-                audioContext.close();
-                audioContext = null;
-            }
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-                animationFrameId = null;
-            }
-
+        function goToMenu() {
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-menu').classList.remove('hidden');
             stopTimer();
-            updateMonitoringUI(false);
-            updateStatus('stopped', 'PENGAWASAN DIHENTIKAN');
-            volumeProgressBar.style.width = '0%';
-            volumePercentText.textContent = '0%';
         }
 
-        function setupAudioAnalyser(stream) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaStreamSource(stream);
-            source.connect(analyser);
-            analyser.fftSize = 256;
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
+        function startGame() {
+            // Acak dan ambil tepat 15 soal unik
+            let shuffled = [...masterBankSoal].sort(() => 0.5 - Math.random());
+            activeQuestions = shuffled.slice(0, 15);
+            currentIndex = 0;
+            score = 0;
+            correctCount = 0;
+            wrongCount = 0;
 
-            analyzeAudioLoop();
+            document.getElementById('screen-menu').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('score-val').innerText = score;
+
+            loadQuestion();
         }
 
-        function startSimulationAnalyser() {
-            // Simulated fluctuation for testing without mic or in simulation mode
-            function simulateLoop() {
-                if (!isMonitoring) return;
-                // Generate simulated noise level fluctuating between 15% and 65% (spiking occasionally)
-                let simulatedVol = Math.floor(Math.random() * 50) + 15;
-                if (Math.random() < 0.05) {
-                    simulatedVol = Math.floor(Math.random() * 40) + 55; // Spike past threshold
-                }
-                processVolumeLevel(simulatedVol);
-                animationFrameId = setTimeout(simulateLoop, 300);
-            }
-            simulateLoop();
-        }
-
-        function analyzeAudioLoop() {
-            if (!isMonitoring) return;
-
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
-            }
-            let average = sum / dataArray.length;
-            let volumePercent = Math.min(100, Math.floor((average / 128) * 100));
-
-            processVolumeLevel(volumePercent);
-            animationFrameId = requestAnimationFrame(analyzeAudioLoop);
-        }
-
-        function processVolumeLevel(volumePercent) {
-            volumeProgressBar.style.width = volumePercent + '%';
-            volumePercentText.textContent = volumePercent + '%';
-
-            const threshold = parseInt(thresholdSlider.value);
-
-            // Handle Cooldown check
-            if (isCooldownActive) {
-                const now = Date.now();
-                const remaining = Math.ceil((cooldownTimerEnd - now) / 1000);
-                if (remaining <= 0) {
-                    isCooldownActive = false;
-                    cooldownBanner.classList.add('hidden');
-                } else {
-                    cooldownText.textContent = `Menenangkan suasana... (${remaining}s)`;
-                    updateStatus('cooldown', '⏳ MENENANGKAN KELAS...');
-                    return;
-                }
+        function loadQuestion() {
+            if (currentIndex >= activeQuestions.length) {
+                endGame();
+                return;
             }
 
-            if (volumePercent >= threshold) {
-                // Volume exceeds threshold
-                updateStatus('loud', '🔴 TERLALU RIBUT!');
-                
-                if (!highVolumeStartTime) {
-                    highVolumeStartTime = Date.now();
-                } else {
-                    const elapsedHigh = Date.now() - highVolumeStartTime;
-                    if (elapsedHigh >= requiredHighDurationMs) {
-                        // Anti false trigger passed! Trigger balloon pop
-                        highVolumeStartTime = null;
-                        triggerRandomBalloonBurst();
-                        startCooldown();
-                    }
-                }
-            } else if (volumePercent >= threshold * 0.75) {
-                // Approaching threshold
-                updateStatus('warning', '🟡 SUARA MENINGKAT');
-                highVolumeStartTime = null;
-            } else {
-                // Quiet
-                updateStatus('normal', '🟢 KELAS TENANG');
-                highVolumeStartTime = null;
-            }
-        }
-
-        function startCooldown() {
-            isCooldownActive = true;
-            cooldownTimerEnd = Date.now() + 4000; // 4 seconds cooldown
-            cooldownBanner.classList.remove('hidden');
-            addHistoryRecord("🔴 Suara terlalu tinggi melewati ambang batas");
-        }
-
-        function updateStatus(state, text) {
-            statusText.textContent = text;
-            statusIndicatorDot.className = "w-3 h-3 rounded-full animate-pulse";
+            isAnsweringLocked = false;
+            zoneTimer = 0;
+            timeLeft = 15;
+            document.getElementById('countdown-display').innerText = timeLeft;
+            document.getElementById('question-counter').innerText = `SOAL ${currentIndex + 1}/15`;
             
-            if (state === 'normal') {
-                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
-                statusIndicatorDot.classList.add('bg-emerald-500');
-            } else if (state === 'warning') {
-                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-2 shadow-sm";
-                statusIndicatorDot.classList.add('bg-amber-500');
-            } else if (state === 'loud') {
-                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-2 shadow-sm animate-pulse";
-                statusIndicatorDot.classList.add('bg-rose-600');
-            } else if (state === 'cooldown') {
-                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-2 shadow-sm";
-                statusIndicatorDot.classList.add('bg-amber-500');
-            } else {
-                statusBadge.className = "px-5 py-2 rounded-full text-sm font-bold tracking-wide uppercase mb-4 transition-all duration-300 bg-slate-100 text-slate-600 border border-slate-300 flex items-center gap-2 shadow-sm";
-                statusIndicatorDot.classList.remove('animate-pulse');
-                statusIndicatorDot.classList.add('bg-slate-400');
-            }
+            // Progress Bar
+            let progressPct = ((currentIndex) / 15) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPct}%`;
+
+            let q = activeQuestions[currentIndex];
+            document.getElementById('statement-box').innerText = q.text;
+
+            resetZoneStyles();
+            document.getElementById('feedback-modal').classList.add('hidden');
+
+            startTimer();
         }
 
-        function updateMonitoringUI(active) {
-            if (active) {
-                toggleMonitorBtn.className = "w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-lg shadow-lg hover:shadow-rose-500/30 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-3";
-                toggleMonitorIcon.textContent = "⏹️";
-                toggleMonitorText.textContent = "HENTIKAN PENGAWASAN";
-            } else {
-                toggleMonitorBtn.className = "w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-lg shadow-lg hover:shadow-indigo-500/30 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-3";
-                toggleMonitorIcon.textContent = "▶️";
-                toggleMonitorText.textContent = "MULAI PENGAWASAN";
-            }
-        }
-
-        function showMicError(msg) {
-            micErrorMsg.textContent = msg;
-            micErrorMsg.classList.remove('hidden');
-        }
-
-        function hideMicError() {
-            micErrorMsg.textContent = '';
-            micErrorMsg.classList.add('hidden');
-        }
-
-        // Timer Logic
         function startTimer() {
-            if (timerInterval) clearInterval(timerInterval);
+            clearInterval(timerInterval);
             timerInterval = setInterval(() => {
-                durationSeconds++;
-                statDurationText.textContent = formatTime(durationSeconds);
+                if (isAnsweringLocked) return;
+
+                timeLeft--;
+                document.getElementById('countdown-display').innerText = timeLeft;
+
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    soundEffect.tick();
+                    document.getElementById('countdown-display').classList.add('text-red-500');
+                } else {
+                    document.getElementById('countdown-display').classList.remove('text-red-500');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeOut();
+                }
             }, 1000);
         }
 
         function stopTimer() {
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
+            clearInterval(timerInterval);
+        }
+
+        function handleTimeOut() {
+            if (isAnsweringLocked) return;
+            isAnsweringLocked = true;
+            wrongCount++;
+
+            let q = activeQuestions[currentIndex];
+            showFeedback(false, "WAKTU HABIS!", q);
+        }
+
+        function lockAnswer(selectedAnswer) {
+            if (isAnsweringLocked) return;
+            isAnsweringLocked = true;
+            stopTimer();
+
+            let q = activeQuestions[currentIndex];
+            let isCorrect = (selectedAnswer === q.answer);
+
+            if (isCorrect) {
+                score += 100;
+                correctCount++;
+                document.getElementById('score-val').innerText = score;
+                soundEffect.correct();
+                confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                showFeedback(true, "BENAR! 🎉", q);
+            } else {
+                wrongCount++;
+                soundEffect.wrong();
+                showFeedback(false, "KURANG TEPAT!", q);
             }
         }
 
-        function formatTime(totalSeconds) {
-            const hrs = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-            const mins = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-            const secs = (totalSeconds % 60).toString().padStart(2, '0');
-            return `${hrs}:${mins}:${secs}`;
-        }
+        function showFeedback(isCorrect, titleText, q) {
+            let modal = document.getElementById('feedback-modal');
+            let icon = document.getElementById('feedback-icon');
+            let title = document.getElementById('feedback-title');
+            let correctAnsText = document.getElementById('feedback-correct-answer');
+            let explanation = document.getElementById('feedback-explanation');
 
-        function resetStats() {
-            poppedCount = 0;
-            warningsCount = 0;
-            durationSeconds = 0;
-            updateStatsDisplay();
-            statDurationText.textContent = "00:00:00";
-        }
-
-        function updateStatsDisplay() {
-            statPoppedCount.textContent = poppedCount;
-            statWarningsCount.textContent = warningsCount;
-        }
-
-        // History Management
-        function addHistoryRecord(message) {
-            const now = new Date();
-            const timeString = now.toTimeString().split(' ')[0];
-            const recordText = `${timeString} — ${message}`;
-            
-            warningHistory.unshift(recordText);
-            if (warningHistory.length > 10) {
-                warningHistory.pop();
+            // Highlight Zona Visual
+            if (q.answer === true) {
+                document.getElementById('zone-right').style.borderColor = '#10b981';
+                document.getElementById('zone-right').style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+            } else {
+                document.getElementById('zone-left').style.borderColor = '#ef4444';
+                document.getElementById('zone-left').style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
             }
-            renderHistoryList();
+
+            if (isCorrect) {
+                icon.innerText = "✓";
+                title.innerText = titleText;
+                title.className = "text-4xl font-black mb-3 text-emerald-400";
+                correctAnsText.innerText = "";
+            } else {
+                icon.innerText = "✕";
+                title.innerText = titleText;
+                title.className = "text-4xl font-black mb-3 text-red-400";
+                let jawabStr = q.answer ? "BENAR" : "SALAH";
+                correctAnsText.innerText = `Jawaban yang benar: ${jawabStr}`;
+            }
+
+            explanation.innerText = `💡 Penjelasan: ${q.explanation}`;
+            modal.classList.remove('hidden');
+
+            // Lanjut otomatis setelah 3 detik
+            setTimeout(() => {
+                currentIndex++;
+                loadQuestion();
+            }, 3200);
         }
 
-        function renderHistoryList() {
-            if (warningHistory.length === 0) {
-                historyListContainer.innerHTML = `
-                    <div class="text-xs text-slate-400 text-center py-4 italic bg-slate-50 rounded-xl border border-slate-100">
-                        Belum ada riwayat peringatan tersimpan.
-                    </div>
-                `;
+        function resetZoneStyles() {
+            let zLeft = document.getElementById('zone-left');
+            let zRight = document.getElementById('zone-right');
+            zLeft.style.borderColor = 'rgba(51, 65, 85, 0.8)';
+            zLeft.style.backgroundColor = '';
+            zRight.style.borderColor = 'rgba(51, 65, 85, 0.8)';
+            zRight.style.backgroundColor = '';
+            document.getElementById('fill-left').style.height = '0%';
+            document.getElementById('fill-right').style.height = '0%';
+        }
+
+        function endGame() {
+            stopTimer();
+            document.getElementById('screen-result').classList.remove('hidden');
+
+            let accuracy = Math.round((correctCount / 15) * 100);
+            document.getElementById('res-score').innerText = score;
+            document.getElementById('res-correct').innerText = `${correctCount}/15`;
+            document.getElementById('res-wrong').innerText = `${wrongCount}/15`;
+            document.getElementById('res-accuracy').innerText = `${accuracy}%`;
+
+            // Kategori Hasil
+            let catEl = document.getElementById('result-category');
+            if (correctCount >= 13) {
+                catEl.innerText = "🏆 AHLI TAUBAT";
+            } else if (correctCount >= 10) {
+                catEl.innerText = "🌟 PAHAM DENGAN BAIK";
+            } else if (correctCount >= 7) {
+                catEl.innerText = "👍 TERUS BELAJAR";
+            } else {
+                catEl.innerText = "📚 YUK, PELAJARI LAGI";
+            }
+
+            // High Score Check
+            if (score > highcore) {
+                highcore = score;
+                localStorage.setItem('taubat_highscore', highcore);
+                document.getElementById('high-score-display').innerText = `🏆 High Score: ${highcore}`;
+            }
+
+            confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
+        }
+
+        // --- SISTEM DETEKSI KAMERA (MEDIAPIPE POSE) ---
+        let poseInstance = null;
+        let cameraInstance = null;
+
+        async function initCamera() {
+            const videoElement = document.getElementById('webcam');
+            const statusDot = document.getElementById('cam-status-dot');
+            const statusText = document.getElementById('cam-status-text');
+            const warningScreen = document.getElementById('screen-camera-warning');
+
+            try {
+                poseInstance = new Pose({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+                });
+
+                poseInstance.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                poseInstance.onResults(onPoseResults);
+
+                cameraInstance = new Camera(videoElement, {
+                    onFrame: async () => {
+                        if (poseInstance) {
+                            await poseInstance.send({ image: videoElement });
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
+
+                await cameraInstance.start();
+                warningScreen.classList.add('hidden');
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                statusText.innerText = "CAMERA: ACTIVE & DETECTED";
+            } catch (err) {
+                console.error("Gagal mengakses kamera:", err);
+                warningScreen.classList.remove('hidden');
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+                statusText.innerText = "CAMERA: ERROR / DENIED";
+            }
+        }
+
+        function onPoseResults(results) {
+            if (isAnsweringLocked) return;
+
+            let now = Date.now();
+            let deltaTime = now - lastTimestamp;
+            lastTimestamp = now;
+
+            if (!results.poseLandmarks) {
+                // Tidak ada tubuh terdeteksi
+                updateZoneTracking('center', deltaTime);
                 return;
             }
 
-            historyListContainer.innerHTML = '';
-            warningHistory.forEach(item => {
-                const div = document.createElement('div');
-                div.className = "text-xs font-medium text-slate-700 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 flex items-center justify-between";
-                div.innerHTML = `<span>${item}</span><span class="text-rose-500 font-bold">⚠️</span>`;
-                historyListContainer.appendChild(div);
-            });
+            // Gunakan rata-rata posisi bahu (landmark 11 dan 12) atau pinggul untuk menentukan posisi horizontal (0.0 sampai 1.0)
+            let leftShoulder = results.poseLandmarks[11];
+            let rightShoulder = results.poseLandmarks[12];
+
+            if (!leftShoulder || !rightShoulder) {
+                updateZoneTracking('center', deltaTime);
+                return;
+            }
+
+            // Titik tengah X torso (karena video dimirror, x=0 adalah kanan asli, x=1 adalah kiri asli di layar)
+            let torsoX = (leftShoulder.x + rightShoulder.x) / 2;
+
+            // Batas Zona di layar:
+            // Sisi Kiri layar (di mirror berarti x > 0.6) -> Zona SALAH
+            // Sisi Kanan layar (di mirror berarti x < 0.4) -> Zona BENAR
+            // Tengah (0.4 <= x <= 0.6) -> Belum memilih
+
+            let detected = 'center';
+            if (torsoX > 0.60) {
+                detected = 'left'; // Sisi Kiri Layar (SALAH)
+            } else if (torsoX < 0.40) {
+                detected = 'right'; // Sisi Kanan Layar (BENAR)
+            }
+
+            updateZoneTracking(detected, deltaTime);
         }
 
-        function clearHistory() {
-            warningHistory = [];
-            renderHistoryList();
+        function updateZoneTracking(zone, dt) {
+            let fillLeft = document.getElementById('fill-left');
+            let fillRight = document.getElementById('fill-right');
+
+            if (zone === currentZone) {
+                if (zone !== 'center') {
+                    zoneTimer += dt;
+                    let pct = Math.min(100, (zoneTimer / requiredZoneTime) * 100);
+
+                    if (zone === 'left') fillLeft.style.height = `${pct}%`;
+                    if (zone === 'right') fillRight.style.height = `${pct}%`;
+
+                    if (zoneTimer >= requiredZoneTime) {
+                        if (zone === 'left') lockAnswer(false);
+                        if (zone === 'right') lockAnswer(true);
+                    }
+                } else {
+                    zoneTimer = 0;
+                    fillLeft.style.height = '0%';
+                    fillRight.style.height = '0%';
+                }
+            } else {
+                currentZone = zone;
+                zoneTimer = 0;
+                fillLeft.style.height = '0%';
+                fillRight.style.height = '0%';
+            }
         }
 
-        // Alert Banner Display
-        function showAlertBanner() {
-            alertBanner.classList.remove('hidden');
-            setTimeout(() => {
-                alertBanner.classList.add('hidden');
-            }, 3000);
-        }
-
-        // Run on load
-        window.onload = function() {
-            initApp();
-        };
+        // Auto inisialisasi kamera saat halaman dimuat
+        window.addEventListener('DOMContentLoaded', () => {
+            initCamera();
+        });
     </script>
 </body>
 </html>
